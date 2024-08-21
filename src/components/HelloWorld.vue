@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {onBeforeUnmount, onMounted, ref} from "vue";
+import Player from "./Player.vue";
 
 enum GameStatus {
   Pregame,
@@ -14,7 +15,7 @@ interface GameData {
   currentPrompt: string,
   promptHistory: string[],
   status: string,
-  playerData: PlayerData
+  playerData: PlayerData[]
 }
 
 interface PlayerData {
@@ -35,6 +36,7 @@ const username = ref('');
 const status = ref<GameStatus>(GameStatus.Pregame);
 const answer = ref('')
 const gameData = ref<GameData>(null)
+const playerData = ref<PlayerData[]>(null)
 
 // Function to connect to the WebSocket server
 const connect = () => {
@@ -67,17 +69,23 @@ const connect = () => {
       case "round-started":
         status.value = GameStatus.Playing;
         gameData.value = data.content;
+        playerData.value = data.content.player_data;
+        console.log(playerData.value);
         console.log(gameData.value);
         return
       case "post-round-adjustment":
       case "game-updated":
         console.log(data.type)
         gameData.value = data.content;
+        playerData.value = data.content.player_data;
+        console.log(playerData.value);
         console.log(gameData.value);
         return
       case "round-completed":
         status.value = GameStatus.BetweenRounds;
         gameData.value = data.content;
+        playerData.value = data.content.player_data;
+        console.log(playerData.value);
         console.log(gameData.value);
         return
       case "answer-accepted":
@@ -149,6 +157,9 @@ onBeforeUnmount(() => {
     <button @click="startGame()">Start Game</button>
   </div>
   <div v-if="status === GameStatus.Playing">
+    <div class="players">
+      <player v-for="player in playerData" :username="player.username"  :status="player.status" />
+    </div>
     <input placeholder="Type your Response!" v-model="answer"/>
     <button @click="submitResponse()">Submit Answer</button>
   </div>
