@@ -27,8 +27,8 @@ interface PlayerData {
 }
 
 const socket = ref<WebSocket | null>(null);
-const time = ref(null)
-const userId = ref(null)
+const time = ref(null);
+const userId = ref(null);
 const messages = ref<{ message: string }[]>([]);
 const roomCode = ref('');
 const roomCodeInput = ref('');
@@ -36,7 +36,6 @@ const username = ref('');
 const status = ref<GameStatus>(GameStatus.Pregame);
 const answer = ref('')
 const gameData = ref<GameData>(null)
-const playerData = ref<PlayerData[]>(null)
 
 // Function to connect to the WebSocket server
 const connect = () => {
@@ -48,45 +47,35 @@ const connect = () => {
 
   socket.value.onmessage = (event: MessageEvent) => {
     const data = JSON.parse(event.data);
-    console.log(data.type)
     messages.value.push(data);
 
     switch(data.type){
       case "game-created":
-        roomCode.value = data.content.room_code;
+        roomCode.value = data.content.roomCode;
         console.log(roomCode.value);
         joinRoom(roomCode.value);
         return
       case "joined-game":
         status.value = GameStatus.InLobby;
-        userId.value = data.content.user_id;
-        roomCode.value = data.content.room_code;
+        userId.value = data.content.userId;
+        roomCode.value = data.content.roomCode;
         return
       case "countdown":
-        time.value = data.content.time_remaining;
+        time.value = data.content.timeRemaining;
         return
       case "game-started":
       case "round-started":
         status.value = GameStatus.Playing;
-        gameData.value = data.content;
-        playerData.value = data.content.player_data;
-        console.log(playerData.value);
-        console.log(gameData.value);
+        gameData.value = data.content satisfies GameData
         return
       case "post-round-adjustment":
       case "game-updated":
         console.log(data.type)
-        gameData.value = data.content;
-        playerData.value = data.content.player_data;
-        console.log(playerData.value);
-        console.log(gameData.value);
+        gameData.value = data.content satisfies GameData
         return
       case "round-completed":
         status.value = GameStatus.BetweenRounds;
-        gameData.value = data.content;
-        playerData.value = data.content.player_data;
-        console.log(playerData.value);
-        console.log(gameData.value);
+        gameData.value = data.content satisfies GameData
         return
       case "answer-accepted":
         status.value = GameStatus.Submitted;
@@ -105,29 +94,26 @@ const connect = () => {
 
 const createRoom = () => {
   let message = { type: 'create-game', content: "" };
-  console.log(message);
   socket.value.send(JSON.stringify(message));
 }
 
 const joinRoom = (roomCode) => {
-  const message = { type: 'join-game', content: {room_code: roomCode, username: username.value} };
-  console.log(message);
+  const message = { type: 'join-game', content: {roomCode: roomCode, username: username.value} };
   socket.value.send(JSON.stringify(message));
 }
 
 const startGame = () => {
-  const message = { type: 'start-game', content: {room_code: roomCode.value, username: username.value} };
-  console.log(message);
+  const message = { type: 'start-game', content: {roomCode: roomCode.value, username: username.value} };
   socket.value.send(JSON.stringify(message));
 }
 
 const submitResponse = () => {
-  const message = { type: 'submit-answer', content: {room_code: roomCode.value, answer: answer.value, player_id: userId.value}}
+  const message = { type: 'submit-answer', content: {roomCode: roomCode.value, answer: answer.value, playerId: userId.value}}
   socket.value.send(JSON.stringify(message))
 }
 
 const readyUp = () => {
-  const message = { type: 'ready-up', content: {room_code: roomCode.value, player_id: userId.value}}
+  const message = { type: 'ready-up', content: {roomCode: roomCode.value, playerId: userId.value}}
   socket.value.send(JSON.stringify(message))
 }
 
@@ -158,7 +144,7 @@ onBeforeUnmount(() => {
   </div>
   <div v-if="status === GameStatus.Playing">
     <div class="players">
-      <player v-for="player in playerData" :username="player.username"  :status="player.status" />
+      <player v-for="player in gameData.playerData" :username="player.username"  :status="player.status" />
     </div>
     <input placeholder="Type your Response!" v-model="answer"/>
     <button @click="submitResponse()">Submit Answer</button>
