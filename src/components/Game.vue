@@ -1,40 +1,19 @@
 <script setup lang="ts">
 import {onBeforeUnmount, onMounted, ref} from "vue";
 import Player from "./Player.vue";
-
-enum GameStatus {
-  Pregame,
-  InLobby,
-  Playing,
-  Submitted,
-  BetweenRounds
-}
-
-interface GameData {
-  round: int,
-  currentPrompt: string,
-  promptHistory: string[],
-  status: string,
-  playerData: PlayerData[]
-}
-
-interface PlayerData {
-  username: string,
-  id: string,
-  wordHistory: string[],
-  letters: string[],
-  status: string,
-}
+import Timer from "./Timer.vue";
+import {GameData, GameStatus} from "../types/types.ts";
+import PlayerDisplay from "./PlayerDisplay.vue";
+import PromptBox from "./PromptBox.vue";
 
 const socket = ref<WebSocket | null>(null);
-const time = ref(null);
+const time = ref(0);
 const userId = ref(null);
 const messages = ref<{ message: string }[]>([]);
 const roomCode = ref('');
 const roomCodeInput = ref('');
 const username = ref('');
 const status = ref<GameStatus>(GameStatus.Pregame);
-const answer = ref('')
 const gameData = ref<GameData>(null)
 
 // Function to connect to the WebSocket server
@@ -77,9 +56,6 @@ const connect = () => {
         status.value = GameStatus.BetweenRounds;
         gameData.value = data.content satisfies GameData
         return
-      case "answer-accepted":
-        status.value = GameStatus.Submitted;
-        return
     }
   };
 
@@ -107,8 +83,8 @@ const startGame = () => {
   socket.value.send(JSON.stringify(message));
 }
 
-const submitResponse = () => {
-  const message = { type: 'submit-answer', content: {roomCode: roomCode.value, answer: answer.value, playerId: userId.value}}
+const submitResponse = (answer: string) => {
+  const message = { type: 'submit-answer', content: {roomCode: roomCode.value, answer: answer, playerId: userId.value}}
   socket.value.send(JSON.stringify(message))
 }
 
@@ -132,7 +108,6 @@ onBeforeUnmount(() => {
 
 <template>
   <h1>{{roomCode}}</h1>
-  <h3>{{time}}</h3>
   <div v-if="status === GameStatus.Pregame">
     <input placeholder="Username" v-model="username"/>
     <input placeholder="Room Code" v-model="roomCodeInput"/>
@@ -142,12 +117,12 @@ onBeforeUnmount(() => {
   <div v-if="status === GameStatus.InLobby">
     <button @click="startGame()">Start Game</button>
   </div>
+  <div v-if="status === GameStatus.Playing || status === GameStatus.BetweenRounds">
+    <Timer :time="time" />
+    <PlayerDisplay :players="gameData.playerData" />
+  </div>
   <div v-if="status === GameStatus.Playing">
-    <div class="players">
-      <player v-for="player in gameData.playerData" :username="player.username"  :status="player.status" />
-    </div>
-    <input placeholder="Type your Response!" v-model="answer"/>
-    <button @click="submitResponse()">Submit Answer</button>
+    <PromptBox :prompt="gameData.currentPrompt" @submit-answer="submitResponse" />
   </div>
   <div v-if="status === GameStatus.BetweenRounds">
     <button @click="readyUp()">Ready!</button>
